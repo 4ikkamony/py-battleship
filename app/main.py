@@ -7,7 +7,7 @@ class BattleshipError(Exception):
     pass
 
 
-class ShipsTooCloseError(BattleshipError):
+class ShipPositionError(BattleshipError):
     pass
 
 
@@ -42,33 +42,40 @@ class Ship:
             end: tuple[int, int],
             is_drowned: bool = False
     ) -> None:
-        self.decks = Ship.create_decks(start, end)
+        self.start = start
+        self.end = end
+        self.decks = self.create_decks()
         self.is_drowned = is_drowned
 
     def __len__(self) -> int:
         return len(self.decks)
 
-    @staticmethod
-    def create_decks(
-            start: tuple[int, int],
-            end: tuple[int, int]
-    ) -> dict[tuple[int, int], Deck]:
+    def create_decks(self) -> dict[tuple[int, int], Deck]:
         decks = {}
 
-        column = start[1]
-        while column <= end[1]:
-            decks[(start[0], column)] = Deck.ALIVE
+        column = self.start[1]
+        while column <= self.end[1]:
+            decks[(self.start[0], column)] = Deck.ALIVE
             column += 1
 
-        row = start[0]
-        while row <= end[0]:
-            decks[(row, start[1])] = Deck.ALIVE
+        row = self.start[0]
+        while row <= self.end[0]:
+            decks[(row, self.start[1])] = Deck.ALIVE
             row += 1
 
         return decks
 
-    def get_ship_cells(self) -> tuple[tuple[int, int], ...]:
-        return tuple(self.decks.keys())
+    def get_adjacent_cells(self) -> list[tuple[int, int]]:
+        min_row, min_column = self.start
+        max_row, max_column = self.end
+
+        adjacent_cells = []
+        for row in range(min_row - 1, max_row + 2):
+            for column in range(min_column - 1, max_column + 2):
+                if (row, column) not in self.decks:
+                    if 0 <= row <= 9 and 0 <= column <= 9:
+                        adjacent_cells.append((row, column))
+        return adjacent_cells
 
     def get_deck(self, row: int, column: int) -> Deck:
         return self.decks[(row, column)]
@@ -99,7 +106,7 @@ class Battleship:
         fields = {}
         for ship in ships:
             ship_object = Ship(*ship)
-            for cell in ship_object.get_ship_cells():
+            for cell in ship_object.decks:
                 fields[cell] = ship_object
         return fields
 
@@ -137,19 +144,21 @@ class Battleship:
 
         required_counts = {1: 4, 2: 3, 3: 2, 4: 1}
 
-        for size, required in required_counts.items():
-            if ship_deck_counts.get(size, 0) != required:
+        for ship_size, required_count in required_counts.items():
+            if ship_deck_counts.get(ship_size, 0) != required_count:
                 raise ShipTypesCountError(
-                    f"Field must have {required} {size}-deck ships"
+                    f"Field must have {required_count} {ship_size}-deck ships"
                 )
 
-    @staticmethod
-    def _validate_ship_placement(ships: set) -> None:
+    def _validate_ship_placement(self, ships: set) -> None:
         for ship in ships:
-            ship_cells = ship.get_ship_cells()
-            for cell in ship_cells:
-                # check adjacent
-                ...
+            ship_neighbours = ship.get_adjacent_cells()
+            for cell in ship_neighbours:
+                if cell in self.fields:
+                    raise ShipPositionError(
+                        f"Occupied cell {cell} "
+                        f"too close to ship {ship}"
+                    )
 
     def _validate_field(self) -> None:
         ships = set(self.fields.values())
@@ -159,7 +168,7 @@ class Battleship:
 
         Battleship._validate_ship_types(ships)
 
-        Battleship._validate_ship_placement(ships)
+        self._validate_ship_placement(ships)
 
 
 if __name__ == "__main__":
@@ -175,7 +184,8 @@ if __name__ == "__main__":
             ((9, 5), (9, 5)),
             ((9, 3), (9, 3)),
             ((9, 7), (9, 7)),
-        ]
+        ],
+        title_word=None
     )
     battle_ship.print_field()
 
