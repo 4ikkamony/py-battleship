@@ -53,15 +53,16 @@ class Ship:
     def create_decks(self) -> dict[tuple[int, int], Deck]:
         decks = {}
 
-        column = self.start[1]
-        while column <= self.end[1]:
-            decks[(self.start[0], column)] = Deck.ALIVE
-            column += 1
-
-        row = self.start[0]
-        while row <= self.end[0]:
-            decks[(row, self.start[1])] = Deck.ALIVE
-            row += 1
+        if self.start[0] == self.end[0]:
+            column = self.start[1]
+            while column <= self.end[1]:
+                decks[(self.start[0], column)] = Deck.ALIVE
+                column += 1
+        else:
+            row = self.start[0]
+            while row <= self.end[0]:
+                decks[(row, self.start[1])] = Deck.ALIVE
+                row += 1
 
         return decks
 
